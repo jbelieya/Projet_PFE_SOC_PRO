@@ -1,4 +1,5 @@
 import random
+from urllib import request
 from django.conf import settings
 from django.core.mail import send_mail
 from django.shortcuts import render
@@ -12,13 +13,12 @@ from accounts.models import User
 from .serializers import UserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from .permissions import IsAdminUser, IsAnalysteN1, IsAnalysteN2, IsManager
 # Create your views here.
 
 from django.core.cache import cache # Lezem nzidou hedhi
 import random
-
-
+from rest_framework.permissions import IsAuthenticated
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.exceptions import AuthenticationFailed
@@ -129,3 +129,24 @@ class VerifyEmailView(APIView):
             return Response({"message": "Compte créé avec succès! En attente de l'approbation de l'admin."}, status=status.HTTP_201_CREATED)
         else:
             return Response({"error": "Code incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist() #supprime el token mel database mta3 blacklist
+            return Response({"message":"Déconnexion réussie"},status=205)
+        except Exception as e:
+            return Response({"error":"Token invalide"},status=400)
+
+
+
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated,IsAnalysteN2|IsAdminUser|IsManager|IsAnalysteN1] 
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
