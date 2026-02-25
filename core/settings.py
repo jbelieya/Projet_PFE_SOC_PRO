@@ -34,7 +34,6 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'accounts.apps.AccountsConfig',
     'incidents.apps.IncidentsConfig',
-    'logs.apps.LogsConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -101,7 +100,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'soc_db',
+        'NAME': 'soc_db3',
         'USER': 'postgres',
         'PASSWORD': '123456789',
         'HOST': 'localhost',

@@ -27,6 +27,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class MyLoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]  # Koul wahed ynajjem ylogin, besh nthabbet f'el
     def post(self, request, *args, **kwargs):
         username = request.data.get('username')
         password = request.data.get('password')
@@ -48,6 +49,7 @@ class MyLoginView(TokenObtainPairView):
         except User.DoesNotExist:
             return Response({"error": "Utilisateur non trouvé."}, status=404)
 class RegisterView(APIView): # Baddelneha APIView 3adia
+    permission_classes = [AllowAny] # Koul wahed ynajjem yregister
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -97,6 +99,7 @@ class RegisterView(APIView): # Baddelneha APIView 3adia
 
 
 class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]  # Koul wahed ynajjem yverify
     def post(self, request):
         email = request.data.get('email')
         code = request.data.get('code')
