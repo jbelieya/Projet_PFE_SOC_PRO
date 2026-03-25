@@ -19,7 +19,7 @@ from .permissions import IsAdminUser, IsAnalysteN1, IsAnalysteN2, IsManager
 from django.core.cache import cache # Lezem nzidou hedhi
 import random
 from rest_framework.permissions import IsAuthenticated
-
+from django.contrib.auth import authenticate
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
@@ -34,7 +34,9 @@ class MyLoginView(TokenObtainPairView):
 
         try:
             user = User.objects.get(username=username)
-            
+            usere = authenticate(username=username, password=password)
+            if not usere:
+                return Response({"error": "Mot de passe incorrect."}, status=401)
             # 1. Thabbet fel Verification
             if not user.is_verified:
                 return Response({"error": "Veuillez vérifier votre email d'abord."}, status=401)
@@ -55,6 +57,13 @@ class RegisterView(APIView): # Baddelneha APIView 3adia
         if serializer.is_valid():
             # Nakhou el data ama MA NA3MELCH .save()
             user_data = serializer.validated_data
+            if User.objects.filter(username=user_data['username']).exists():
+                return Response({"error": "Le nom d'utilisateur est déjà pris."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check email unique
+            if User.objects.filter(email=user_data['email']).exists():
+                return Response({"error": "Cet email est déjà associé à un compte."}, status=status.HTTP_400_BAD_REQUEST)
+            
             otp_code = str(random.randint(100000, 999999))
             
             # Nkhabiw el data f'el Cache mta3 Django (yeb9aw 15 dbi9a)
