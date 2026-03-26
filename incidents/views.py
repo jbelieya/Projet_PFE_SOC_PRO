@@ -13,6 +13,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from rest_framework.decorators import action
 from django.utils import timezone
+from audit.models import create_audit_log
 # Create your views here.
 class IncidentViewSet(viewsets.ModelViewSet):
     queryset = Incident.objects.all()
@@ -68,7 +69,12 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.acknowledge_time = timezone.now()
         incident.incident_status = 'In Progress'
         incident.save()
-        
+        create_audit_log(
+            user=request.user, 
+            action='CREATE', 
+            description=f"A créé un nouvel incident: {incident.titre}",
+            incident_id=incident.id_incident
+        )
         return Response({
             "status": "In Progress",
             "analyst": request.user.username,
@@ -131,7 +137,12 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.time_of_closed_incident = timezone.now()
         
         incident.save()
-
+        create_audit_log(
+            user=request.user, 
+            action='CREATE', 
+            description=f"A créé un nouvel incident: {incident.titre}",
+            incident_id=incident.id_incident
+        )
         # 3. Calcul MTTR (Mean Time To Resolve)
         diff = incident.time_of_closed_incident - incident.date_detection
         mttr_minutes = round(diff.total_seconds() / 60, 2)
@@ -172,7 +183,12 @@ class IncidentViewSet(viewsets.ModelViewSet):
             description_investigation=description_investigation,
             incident_status='Open' # Dima yabda Open
         )
-
+        create_audit_log(
+            user=request.user, 
+            action='CREATE', 
+            description=f"A créé un nouvel incident: {incident.titre}",
+            incident_id=incident.id_incident
+        )
         # 4. Nrajj3ou el Resultat
         return Response({
             "message": "Incident créé avec succès",
@@ -186,9 +202,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident = self.get_object() # Hadhi hiya l-incident mta3ek (Single Object)
 
     # 1. Check Closure
-        if incident.incident_status == 'Closed':
-            return Response({"error": "Impossible de modifier un incident clôturé."}, status=400)
-
+       
         if incident.user_name != request.user:
             return Response({'error': 'Vous n\'êtes pas l\'analyste assigné...'}, status=403)
     # 3. Update Fields
@@ -201,7 +215,12 @@ class IncidentViewSet(viewsets.ModelViewSet):
 
     # 4. SAVE (Houni l-s7i7: update kén l-row hedha)
         incident.save()
-
+        create_audit_log(
+            user=request.user, 
+            action='CREATE', 
+            description=f"A créé un nouvel incident: {incident.titre}",
+            incident_id=incident.id_incident
+        )
         return Response({
         "message": "Incident modifié avec succès",
         "incident_id": incident.incident_id_formatted,

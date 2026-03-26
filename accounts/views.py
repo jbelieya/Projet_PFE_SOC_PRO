@@ -15,7 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .permissions import IsAdminUser, IsAnalysteN1, IsAnalysteN2, IsManager
 # Create your views here.
-
+from audit.models import create_audit_log
 from django.core.cache import cache # Lezem nzidou hedhi
 import random
 from rest_framework.permissions import IsAuthenticated
@@ -45,6 +45,11 @@ class MyLoginView(TokenObtainPairView):
             if not user.is_approved:
                 return Response({"error": "Compte en attente d'approbation par l'admin."}, status=403)
 
+            create_audit_log(
+                user=user, 
+                action='LOGIN', 
+                description=f"L'utilisateur {user.username} s'est connecté au système."
+            )
             # 3. Ken l'user mrigel, khalli SimpleJWT ythabbet f'el Password
             return super().post(request, *args, **kwargs)
 
@@ -150,6 +155,11 @@ class LogoutView(APIView):
         try:
             refresh_token = request.data["refresh"]
             token = RefreshToken(refresh_token)
+            create_audit_log(
+                user=request.user, 
+                action='LOGIN', 
+                description=f"L'utilisateur {request.user.username} s'est connecté au système."
+            )
             token.blacklist() #supprime el token mel database mta3 blacklist
             return Response({"message":"Déconnexion réussie"},status=205)
         except Exception as e:
