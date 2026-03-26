@@ -157,8 +157,8 @@ class LogoutView(APIView):
             token = RefreshToken(refresh_token)
             create_audit_log(
                 user=request.user, 
-                action='LOGIN', 
-                description=f"L'utilisateur {request.user.username} s'est connecté au système."
+                action='LOGOUT', 
+                description=f"L'utilisateur {request.user.username} s'est déconnecté."
             )
             token.blacklist() #supprime el token mel database mta3 blacklist
             return Response({"message":"Déconnexion réussie"},status=205)

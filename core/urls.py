@@ -23,4 +23,5 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('api/', include('incidents.urls')),
     path('audit/', include('audit.urls')),
+    path('todo/', include('todo.urls')),
 ]

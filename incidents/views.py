@@ -71,8 +71,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.save()
         create_audit_log(
             user=request.user, 
-            action='CREATE', 
-            description=f"A créé un nouvel incident: {incident.titre}",
+            action='UPDATE', # walla sna3 'ACKNOWLEDGE' f-el choices
+            description=f"A pris en charge l'incident (Acknowledge): {incident.incident_id_formatted}",
             incident_id=incident.id_incident
         )
         return Response({
@@ -139,8 +139,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.save()
         create_audit_log(
             user=request.user, 
-            action='CREATE', 
-            description=f"A créé un nouvel incident: {incident.titre}",
+            action='DELETE', # walla sna3 'CLOSE' f-el choices
+            description=f"A clôturé l'incident: {incident.incident_id_formatted}",
             incident_id=incident.id_incident
         )
         # 3. Calcul MTTR (Mean Time To Resolve)
@@ -217,8 +217,8 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.save()
         create_audit_log(
             user=request.user, 
-            action='CREATE', 
-            description=f"A créé un nouvel incident: {incident.titre}",
+            action='UPDATE', 
+            description=f"A modifié l'incident: {incident.incident_id_formatted}",
             incident_id=incident.id_incident
         )
         return Response({
