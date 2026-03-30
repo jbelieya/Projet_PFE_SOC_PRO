@@ -34,6 +34,7 @@ CORS_ALLOWED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'accounts.apps.AccountsConfig',
     'incidents.apps.IncidentsConfig',
     'django.contrib.admin',
@@ -48,10 +49,13 @@ INSTALLED_APPS = [
     'corsheaders',
     'audit.apps.AuditConfig',
     'todo.apps.TodoConfig',
+    'messager.apps.MessagerConfig',
 ]
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES':(
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_THROTTLE_CLASSES': (
         'rest_framework.throttling.AnonRateThrottle',
@@ -68,6 +72,12 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': datetime.timedelta(hours=2),
     'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=1),
+}
+# settings.py
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
 }
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -99,7 +109,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
-
+ASGI_APPLICATION = 'core.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
