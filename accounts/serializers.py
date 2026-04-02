@@ -9,7 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'role', 'telephone', 'is_approved', 'is_verified']
+        fields = ['id', 'username', 'email', 'password', 'role', 'telephone', 'is_approved', 'is_verified', 'is_online', 'last_login_time']
     def validate_password(self, value):
         if len(value) < 9:
             raise serializers.ValidationError("Password min 9 caractères .")

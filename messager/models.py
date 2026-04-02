@@ -5,17 +5,16 @@ from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import get_user_model # Behiya bech t-jib el User model s7i7
+from django.contrib.auth import get_user_model 
 
-User = get_user_model() # Tjib el model elli testa3mel fih (Custom wala 3adi)
+User = get_user_model()
 
 class ChatView(models.Model):
-    # Badel 'User' b 'settings.AUTH_USER_MODEL'
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, related_name='sent_chats')
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, related_name='received_chats')
     sent_date = models.DateTimeField('date published')
-    textContent = models.TextField(default='hello world')
-
+    textContent = models.TextField(null=False, blank=False)
+    
     def __str__(self):
         return f"Chat {self.id} from {self.sender} to {self.receiver}"
     

@@ -1,9 +1,14 @@
 
+from contextvars import Token
+
 from django.http import HttpResponse
 from django.http import HttpResponse
 from django.shortcuts import render
 import ast
-
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
 from messager import permission
 from .models import ChatView, User
 from .serializers import ChatViewSerializer
@@ -23,18 +28,14 @@ from rest_framework.permissions import IsAuthenticated
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all() 
     serializer_class = UserSerializer
-    
-    # 2. Baddel TokenAuthentication b-JWTAuthentication
     authentication_classes = [JWTAuthentication] 
     
-    # 3. Raja3 el permissions bech mouch ay wa7ed i-chouf el analysts
     permission_classes = [IsAuthenticated]
 
 class ChatViewSet(viewsets.ModelViewSet):
     queryset = ChatView.objects.all()
     serializer_class = ChatViewSerializer
     
-    # 4. Nafs el 7aja hna
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 class CustomAuthToken(ObtainAuthToken):
@@ -57,3 +58,16 @@ def create_new_chat(request):
         ChatView.create_chat(querydict['textcontent'],querydict['sender'], querydict['receiver'])
     return HttpResponse("hello world")
 
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_conversation(request, other_user_id):
+    current_user = request.user
+    
+    messages = ChatView.objects.filter(
+        Q(sender=current_user, receiver_id=other_user_id) |
+        Q(sender_id=other_user_id, receiver=current_user)
+    ).order_by('sent_date')
+    
+    serializer = ChatViewSerializer(messages, many=True)
+    return Response(serializer.data)

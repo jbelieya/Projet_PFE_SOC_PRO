@@ -15,5 +15,7 @@ class User(AbstractUser):
     is_approved = models.BooleanField(default=False)  # Admin lezem ya3mel validation
     is_verified = models.BooleanField(default=False)  # Code email/sms
     verification_code = models.CharField(max_length=6, blank=True, null=True)
+    is_online = models.BooleanField(default=False)  # Status en ligne
+    last_login_time = models.DateTimeField(blank=True, null=True)  # Dernière connexion
     def __str__(self):
         return f"{self.username} - {self.get_role_display()}"

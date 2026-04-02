@@ -1,19 +1,16 @@
-from django.urls import path, include, re_path
-from rest_framework import routers
-from . import views
-from . import consumers
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from . import views, consumers
 
-router = routers.DefaultRouter()
-router.register(r'chats', views.ChatViewSet)
-router.register(r'users', views.UserViewSet)
+router = DefaultRouter()
+router.register(r'users', views.UserViewSet, basename='user')
+router.register(r'chats', views.ChatViewSet, basename='chat')
 
-# HEDHI LEZEM TKOU_N LIST [] NDHIFA
-urlpatterns = [
-    path('', include(router.urls)), # Thabet f-el comma hna
-    path('api-token-auth/', views.CustomAuthToken.as_view(), name='api_token_auth'),
-    path('create-chat/', views.create_new_chat, name='create_new_chat'),
+websocket_urlpatterns = [
+    path('ws/notifications/<int:user_id>/', consumers.ChatConsumer.as_asgi()),
 ]
 
-# El WebSockets khallihom f-variable wa7dha bech el ASGI ya9raha
-websocket_urlpatterns = [
-re_path(r'ws/chat/(?P<room_name>\w+)/$', consumers.ChatConsumer.as_asgi()),]
+urlpatterns = [
+    path('', include(router.urls)),
+    path('conversation/<int:other_user_id>/', views.get_conversation, name='conversation'),
+]
