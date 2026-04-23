@@ -1,6 +1,5 @@
 
-from contextvars import Token
-
+from rest_framework.authtoken.models import Token
 from django.http import HttpResponse
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -10,7 +9,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from messager import permission
-from .models import ChatView, User
+from .models import ChatView
 from .serializers import ChatViewSerializer
 from django.conf import settings
 from rest_framework import viewsets
@@ -21,9 +20,9 @@ from rest_framework.authtoken.views import ObtainAuthToken, Response
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.authentication import JWTAuthentication # 1. Importi hedhi
 from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth import get_user_model 
+User = get_user_model() # 2. Get the custom user model
 # Create your views here.
-
-
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all() 

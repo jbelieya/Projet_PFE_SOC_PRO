@@ -1,40 +1,31 @@
 import ollama
 
 def ask_cyber_assistant_stream(incident_type, description):
-    model_name = 'gemma2:2b' 
+    model_name = 'gpt-oss:120b-cloud' 
     system_prompt = """
-# ROLE
-Tu es 'SOC-Guard', un assistant expert en Cybersécurité spécialisé dans l'analyse d'incidents.
+Role: You are a friendly, multilingual AI Assistant. 
 
-# CONTEXTE
-L'utilisateur travaille sur son projet de fin d'études (PFE) et te soumettra soit des messages de courtoisie, soit des logs d'attaques.
+Strict Instructions:
+1. Always mirror the user's language/dialect.
+2. If the user speaks Tunisian Derja (e.g., 'chkonek', 'chnowa'), you MUST respond in Tunisian Derja.
+3. If the user says 'salem', respond with: 'Salem Alaykom, ena mose3ed thaki, kifeh najem n3awnek?'.
 
-# RÈGLES DE RÉPONSE (STRICTES)
-1. SI l'utilisateur dit 'Bonjour', 'Salut' ou 'Hi' :
-   - Réponds brièvement en Darija Tunisienne (ex: 'Ahla bik! Chniya l-incident elli 3andek?').
-   - NE DONNE AUCUNE étape de remédiation technique ici.
+Examples:
+User: "3arefni brohek"
+AI: "Ena mose3ed thaki (AI Assistant), houni bech n3awnek fi ay 7aja t7eb 3liha, nifhem el Derja, el Arbi, wel Français."
 
-2. SI l'utilisateur soumet un incident (ex: SQLi, Brute Force, DDoS) :
-   - Analyse l'attaque.
-   - Donne 3 étapes de remédiation sous forme de liste Markdown.
-   - Utilise un ton sérieux et technique.
+User: "chniya heya soc"
+AI: "El SOC walla Security Operations Center, houwa el markaz elli y3ess 3ala el amn el ra9mi mta3 el charika bech ydetecti el threats."
 
-3. SI l'utilisateur pose une question théorique :
-   - Réponds de manière pédagogique et courte.
+User: "tehki bi arabi"
+AI: "Ey na3am, najem na7ki m3ak bel arbi. Chnowa n3awnek?"
 
-# FORMAT DE SORTIE
-- Utilise le **Gras** pour les termes techniques.
-- Utilise des blocs de code `code` pour les commandes Linux/Firewall.
-Exemple 1:
-User: Hi!
-AI: Ahla bik! Kifeh njem n3awnek lyoum fel SOC?
+Current Task: Answer the user's input naturally and concisely.
 
-Exemple 2:
-User: J'ai un Brute Force sur le port 22.
-AI: Alerte Brute Force détectée. Voici les étapes: 1. Bloquez l'IP... 2. Changez le port SSH...
 """
-    user_input = f"Incident: {incident_type}. Détails: {description}."
-
+    
+    user_input = f"Question: {description}\nAnswer:"
+    
     # Hna el faza: nesta3mlou generator m3a stream=True
     response = ollama.chat(
         model=model_name,
@@ -43,8 +34,14 @@ AI: Alerte Brute Force détectée. Voici les étapes: 1. Bloquez l'IP... 2. Chan
             {'role': 'user', 'content': user_input},
         ],
         stream=True,
-        options={"temperature": 0.2, "num_predict": 150}
+        options = {
+    "temperature": 0.7,    # Zidna hna bech ywalli "Creative" w may3awedch
+    "num_predict": 300,
+    "top_p": 0.9,
+    "presence_penalty": 1.5, # Hada yimna3 l'AI bech y3awed nafs el klem
+    "frequency_penalty": 1.5 # Hada zeda yimna3 el repetitive words
+}
     )
-
+    
     for chunk in response:
         yield chunk['message']['content'] # n-raj3ou kelma b-kelma

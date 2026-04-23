@@ -7,8 +7,6 @@ from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model 
 
-User = get_user_model()
-
 class ChatView(models.Model):
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, related_name='sent_chats')
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, related_name='received_chats')
@@ -20,6 +18,7 @@ class ChatView(models.Model):
     
     @staticmethod
     def create_chat(message, senderid, receiverid):
+        User = get_user_model()
         sender_obj = get_object_or_404(User, id=int(senderid))
         receiver_obj = get_object_or_404(User, id=int(receiverid))
         chatnew = ChatView(

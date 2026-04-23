@@ -12,10 +12,10 @@ class User(AbstractUser):
     ]
     role=models.CharField(max_length=20, choices=ROLE_CHOICES, default='ANALYSTE_N1')
     telephone = models.CharField(max_length=15,blank=True,null=True)
-    is_approved = models.BooleanField(default=False)  # Admin lezem ya3mel validation
-    is_verified = models.BooleanField(default=False)  # Code email/sms
+    is_approved = models.BooleanField(default=False)  
+    is_verified = models.BooleanField(default=False)  
     verification_code = models.CharField(max_length=6, blank=True, null=True)
-    is_online = models.BooleanField(default=False)  # Status en ligne
-    last_login_time = models.DateTimeField(blank=True, null=True)  # Dernière connexion
+    is_online = models.BooleanField(default=False)  
+    last_login_time = models.DateTimeField(blank=True, null=True)  
     def __str__(self):
         return f"{self.username} - {self.get_role_display()}"

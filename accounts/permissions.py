@@ -4,7 +4,6 @@ class IsAdminUser(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == 'admin'
     
-
 class IsAnalysteN1(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == 'ANALYSTE_N1'

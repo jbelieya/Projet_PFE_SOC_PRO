@@ -1,3 +1,5 @@
+from urllib import response
+
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -14,12 +16,12 @@ from reportlab.lib import colors
 from rest_framework.decorators import action
 from django.utils import timezone
 from audit.models import create_audit_log
+from reportlab.lib.units import inch
 # Create your views here.
 class IncidentViewSet(viewsets.ModelViewSet):
-    queryset = Incident.objects.all()
+    queryset = Incident.objects.all().order_by('-id_incident') 
     serializer_class = IncidentSerializer
     permission_classes = [IsAuthenticated,IsAnalysteN2|IsAdminUser|IsManager|IsAnalysteN1]  # Koul el actions mta3 el incidents ytalbou authentication
-    # get all incidents: GET /api/incidents/
     def list(self, request, *args, **kwargs):
         """
         Action: Trajja3 liste mta3 les incidents kemlin.
@@ -168,10 +170,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
         raised_by = data.get('raised_by')
         description_investigation = data.get('description_investigation')
 
-        # 2. Validation sghira: Titre lezem ykoun mawjoud
-        if not titre:
-            return Response({"error": "Le titre est obligatoire"}, status=status.HTTP_400_BAD_REQUEST)
-
+        
         # 3. Ensajlou fil Base de données
         # Nota: incident_id_formatted taw yitsna3 automatique fil models.save()
         incident = Incident.objects.create(
@@ -245,40 +244,63 @@ class IncidentViewSet(viewsets.ModelViewSet):
             
         return queryset
     #KPI 1:calculer le MTTD (Mean Time To Detect) de tous les incidents
+    def _calculate_kpi_stats(self, queryset, start_field, end_field, request):
+        stat_type = request.query_params.get('type')  # 'month' or 'year'
+        values_raw = request.query_params.get('values') # '1,2,3'
+        
+        if not stat_type or not values_raw:
+            return None, "Type et values sont obligatoires"
+
+        try:
+            values_list = [int(v.strip()) for v in values_raw.split(',')]
+        except ValueError:
+            return None, "Values must be numbers"
+
+        response_data = {}
+        
+        for val in values_list:
+            if stat_type == 'month':
+                current_year = timezone.now().year
+                period_filter = Q(date_detection__year=current_year, date_detection__month=val)
+            else:
+                period_filter = Q(date_detection__year=val)
+
+            # الحساب: الفرق بين الوقتين ثم المعدل (Avg)
+            data = queryset.filter(period_filter).annotate(
+                diff=ExpressionWrapper(F(end_field) - F(start_field), output_field=DurationField())
+            ).aggregate(avg=Avg('diff'))
+
+            # تحويل النتيجة لدقائق (إذا كانت null نرجع 0)
+            response_data[val] = self._duration_to_minutes(data['avg']) if data['avg'] else 0
+
+        return response_data, None
+
+    # --- MTTD (Mean Time To Detection) ---
     @action(detail=False, methods=['get'])
     def mttd(self, request):
         queryset = self.get_queryset()
-        data = queryset.annotate(
-            diff=ExpressionWrapper(F('date_detection') - F('first_event'), output_field=DurationField())
-        ).aggregate(avg=Avg('diff'))
-        return Response({"mttd": self._duration_to_minutes(data['avg'])})
-    #KPI 2: Calculer le MTTR (Mean Time To Resolve) de tous les incidents
+        data, error = self._calculate_kpi_stats(queryset, 'first_event', 'date_detection', request)
+        if error: return Response({"error": error}, status=400)
+        return Response(data)
+
+    # --- MTTR (Mean Time To Resolve) ---
     @action(detail=False, methods=['get'])
     def mttr(self, request):
-        # Ici on filtre les incidents clôturés et on applique les filtres temporels
-        queryset = self.get_filtered_queryset(request).filter(
+        queryset = self.get_queryset().filter(
             incident_status='Closed', 
             time_of_closed_incident__isnull=False
         )
-        data = queryset.annotate(
-            diff=ExpressionWrapper(F('time_of_closed_incident') - F('date_detection'), output_field=DurationField())
-        ).aggregate(avg=Avg('diff'))
-        return Response({"mttr": self._duration_to_minutes(data['avg'])})
-    
-    #KPI 3: Calculer le MTTA (Mean Time To Acknowledge) de tous les incidents
+        data, error = self._calculate_kpi_stats(queryset, 'date_detection', 'time_of_closed_incident', request)
+        if error: return Response({"error": error}, status=400)
+        return Response(data)
+
+    # --- MTTA (Mean Time To Acknowledge) ---
     @action(detail=False, methods=['get'])
     def mtta(self, request):
-        queryset =Incident.objects.filter(acknowledge_time__isnull=False)
-        mtta_data = queryset.annotate(
-            diff_acknowledge=ExpressionWrapper(
-                F('acknowledge_time') - F('date_detection'),
-                output_field=DurationField()
-            )
-        ).aggregate(avg_mtta=Avg('diff_acknowledge'))
-
-        return Response({
-            "mtta": self._duration_to_minutes(mtta_data['avg_mtta'])   
-        }, status=status.HTTP_200_OK)
+        queryset = self.get_queryset().filter(acknowledge_time__isnull=False)
+        data, error = self._calculate_kpi_stats(queryset, 'date_detection', 'acknowledge_time', request)
+        if error: return Response({"error": error}, status=400)
+        return Response(data)
     
     # KPI 4: Calculer le taux de faux positifs
     @action(detail=False, methods=['get'])
@@ -504,59 +526,146 @@ class IncidentViewSet(viewsets.ModelViewSet):
             return 0
         return round(duration.total_seconds() / 60, 2)
     
-
-    #Rappore de incidents
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['post', 'get'])
     def export_incident_pdf(self, request, pk=None):
-    # 1. Recuperation mta' l-incident mel base
-        try:
-            incident = self.get_object()
-        except Incident.DoesNotExist:
-            return HttpResponse("Incident non trouvé", status=404)
+        incident = self.get_object()
+        if incident.user_name != request.user:
+            return Response(
+                {"error": "You are not authorized to export this report."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if request.method == 'POST':
+            incident.description_investigation = request.data.get('description_investigation', incident.description_investigation)
+            incident.remediation_destination = request.data.get('remediation_destination', incident.remediation_destination)
+            
+            if 'evidence_image' in request.FILES:
+                incident.evidence_image = request.FILES['evidence_image']
+            
+            incident.save()
 
-    # 2. Preparation mta' l-Response PDF
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="Incident_{incident.incident_id_formatted}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="Incident_{incident.id_incident}.pdf"'
 
-    # 3. Create el Canvas
         p = canvas.Canvas(response, pagesize=letter)
         width, height = letter
 
-    # --- Header Design ---
-        p.setFillColor(colors.slategray)
-        p.rect(0, height - 80, width, 80, fill=True, stroke=False)
-    
+        p.setFillColor(colors.HexColor("#001f3f")) 
+        p.rect(0, height - 60, width, 60, fill=True, stroke=False)
+        
         p.setFillColor(colors.white)
-        p.setFont("Helvetica-Bold", 20)
-        p.drawString(40, height - 50, "SOC PLATFORM - INCIDENT REPORT")
-    
-    # --- Incident Details ---
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(30, height - 35, "COFICAB")
+        
+        p.setFont("Helvetica-Bold", 10)
+        p.drawCentredString(width/2, height - 35, f"Multiple threat families detected on {incident.host_name} host")
+        
+        p.setFont("Helvetica", 8)
+        p.drawRightString(width - 30, height - 35, incident.date_detection.strftime('%d/%m/%Y'))
+        p.drawRightString(width - 30, height - 45, "soc confidentiel")
+
+        p.setFillColor(colors.red)
+        p.rect(0, height - 65, width, 5, fill=True, stroke=False)
+
+        current_y = height - 110
+
+        def draw_table_row(y, labels, values, bg_colors):
+            col_width = (width - 60) / len(labels)
+            for i in range(len(labels)):
+                x = 30 + (i * col_width)
+                p.setFillColor(bg_colors[i])
+                p.rect(x, y, col_width, 15, fill=True, stroke=True)
+                p.setFillColor(colors.white)
+                p.setFont("Helvetica-Bold", 8)
+                p.drawString(x + 5, y + 4, labels[i])
+                p.setFillColor(colors.white)
+                p.rect(x, y - 15, col_width, 15, fill=True, stroke=True)
+                p.setFillColor(colors.black)
+                p.setFont("Helvetica", 8)
+                val = str(values[i])[:40] if values[i] else ""
+                p.drawString(x + 5, y - 11, val)
+
+        sev_color = colors.red if incident.severity_level == "High" else colors.HexColor("#001f3f")
+        draw_table_row(current_y, ["Severity level", "Plant Name", "Host Name"], 
+                      [incident.severity_level, incident.plant_name, incident.host_name], 
+                      [sev_color, colors.HexColor("#001f3f"), colors.HexColor("#001f3f")])
+
+        current_y -= 40 
+        draw_table_row(current_y, ["Category", "Raised by", "User Name"], 
+                      [incident.category, incident.raised_by, incident.user_name], 
+                      [colors.HexColor("#001f3f")] * 3)
+
+        current_y -= 40
+        draw_table_row(current_y, ["Incident ID", "Incident Status", "Host status"], 
+                      [incident.id_incident, "Open", incident.host_state], 
+                      [colors.HexColor("#001f3f"), colors.HexColor("#001f3f"), colors.red])
+
+        current_y -= 60
+        box_height = 60
+        p.setStrokeColor(colors.black)
+        p.rect(30, current_y - box_height, (width - 60) * 0.75, box_height, stroke=True)
+        
+        p.setFillColor(colors.HexColor("#001f3f"))
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(35, current_y + 5, "REMEDIATION STEPS TAKEN:")
+        
         p.setFillColor(colors.black)
-        p.setFont("Helvetica-Bold", 12)
-        y = height - 120
-    
-        details = [
-        ("ID / REF:", f"{incident.incident_id_formatted}"),
-        ("Titre:", f"{incident.titre}"),
-        ("Status:", f"{incident.incident_status}"),
-        ("Severity:", f"{incident.severity_level}"),
-        ("Analyste:", f"{incident.user_name}"),
-        ("Date Detection:", f"{incident.date_detection.strftime('%Y-%m-%d %H:%M')}"),
-        ("Host Name:", f"{incident.host_name}"),
-        ("Description:", f"{incident.description_investigation}"),
-        ]
+        p.setFont("Helvetica", 8)
+        rem_text = p.beginText(35, current_y - 15)
+        rem_content = incident.remediation_destination if incident.remediation_destination else "No remediation steps recorded."
+        rem_text.textLines(rem_content)
+        p.drawText(rem_text)
 
-        for label, value in details:
-            p.setFont("Helvetica-Bold", 11)
-            p.drawString(50, y, label)
-            p.setFont("Helvetica", 11)
-            p.drawString(150, y, value)
-            y -= 25  # Move to next line
+        owner_x = 30 + (width - 60) * 0.75
+        p.setFillColor(colors.HexColor("#001f3f"))
+        p.rect(owner_x, current_y, (width - 60) * 0.25, 15, fill=True, stroke=True)
+        p.setFillColor(colors.white)
+        p.drawCentredString(owner_x + ((width-60)*0.125), current_y + 4, "REMEDIATION OWNER")
+        
+        p.setFillColor(colors.HexColor("#f8f9fa"))
+        p.rect(owner_x, current_y - box_height, (width - 60) * 0.25, box_height, fill=True, stroke=True)
+        p.setFillColor(colors.HexColor("#001f3f"))
+        p.setFont("Helvetica-Bold", 9)
+        p.drawCentredString(owner_x + ((width-60)*0.125), current_y - (box_height/2) - 4, f"{incident.plant_name} IT Team")
 
-    # --- Footer ---
-        p.setFont("Helvetica-Oblique", 8)
-        p.drawString(40, 40, "Generé par COFICAB SOC Platform")
+        current_y -= 100
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(30, current_y, "Investigation Details:")
+        
+        current_y -= 10
+        text_box_height = 120
+        p.setStrokeColor(colors.black)
+        p.rect(30, current_y - text_box_height, width - 60, text_box_height, stroke=True)
+        
+        p.setFont("Helvetica", 9)
+        text_object = p.beginText(35, current_y - 20)
+        invest_content = incident.description_investigation if incident.description_investigation else ""
+        text_object.textLines(invest_content)
+        p.drawText(text_object)
+
+        if incident.evidence_image:
+            try:
+                img_path = incident.evidence_image.path
+                p.drawImage(img_path, 30, current_y - text_box_height - 160, width=250, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+
+        footer_y = 60
+        draw_table_row(footer_y, ["First event", "Acknowledge", "Analyst", "Reviewer"], 
+                      [incident.first_event.strftime('%d/%m/%Y') if incident.first_event else "", 
+                       incident.date_detection.strftime('%d/%m/%Y'), 
+                       str(incident.user_name), "Security Manager"], 
+                      [colors.HexColor("#001f3f")] * 4)
 
         p.showPage()
         p.save()
         return response
+    def get_permissions(self):
+       
+        restricted_actions = ['create', 'update', 'acknowledge', 'investigate', 'close_incident']
+        
+        if self.action in restricted_actions:
+            permission_classes = [IsAuthenticated, IsAnalysteN1 | IsAnalysteN2]
+        else:
+            permission_classes = [IsAuthenticated, IsAnalysteN1 | IsAnalysteN2 | IsAdminUser | IsManager]
+            
+        return [permission() for permission in permission_classes]

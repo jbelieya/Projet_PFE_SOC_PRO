@@ -49,7 +49,7 @@ class Incident(models.Model):
     time_of_closed_incident = models.DateTimeField(null=True, blank=True)
     acknowledge_time = models.DateTimeField(null=True, blank=True)
     user_name = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Utilisateur associé",null=True, blank=True)  # Relie l'incident à un utilisateur (analyste)
-
+    evidence_image = models.ImageField(upload_to='incident_evidence/', null=True, blank=True)
     def __str__(self):
         return f"{self.incident_id_formatted} - {self.titre}"
 
