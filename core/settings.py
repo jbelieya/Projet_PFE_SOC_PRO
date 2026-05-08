@@ -92,8 +92,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # CORS Middleware
-    'django.middleware.common.CommonMiddleware',  # Common Middleware (après CORS)
+    'corsheaders.middleware.CorsMiddleware',  
+    'django.middleware.common.CommonMiddleware',  
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -173,11 +173,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'eeya6291@gmail.com' # Email mte3ek
-EMAIL_HOST_PASSWORD = 'egtb osrh fqfp oqnu'  # App Password mta3 Google
+EMAIL_HOST_USER = 'eeya6291@gmail.com' 
+EMAIL_HOST_PASSWORD = 'egtb osrh fqfp oqnu' 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-EMAIL_TIMEOUT = 10 # yestana 10 thwani barka
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend' (Maski hedha tawa)
+EMAIL_TIMEOUT = 10 #
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',

@@ -99,7 +99,7 @@ class RegisterView(APIView):
             raise AuthenticationFailed("Lezem t-validi el code elli jék 3la el email.")
             
         return response"""
-    
+
 
 
 class VerifyEmailView(APIView):
@@ -117,16 +117,22 @@ class VerifyEmailView(APIView):
         if cached_data['otp_code'] == code:
             user_data = cached_data['user_data']
             
-            user = User.objects.create_user(
-                username=user_data['username'],
-                email=user_data['email'],
-                password=user_data['password'],
-                role=user_data.get('role', 'ANALYSTE_N1'),
-                telephone=user_data.get('telephone', ''),
-                is_active=True, 
-                is_verified=True,  
-                is_approved=False
-            )
+            username = user_data['username']
+            password = user_data.pop('password') 
+
+            user, created = User.objects.update_or_create(
+               username=username,
+                defaults={
+        'email': user_data.get('email'),
+        'role': user_data.get('role', 'ANALYSTE_N1'),
+        'telephone': user_data.get('telephone', ''),
+        'is_active': True,
+        'is_verified': True,
+        'is_approved': False,
+    }
+)
+            user.set_password(password) 
+            user.save()
             
             cache.delete(cache_key)
             

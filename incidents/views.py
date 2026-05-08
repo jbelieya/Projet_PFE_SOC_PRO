@@ -21,27 +21,20 @@ from reportlab.lib.units import inch
 class IncidentViewSet(viewsets.ModelViewSet):
     queryset = Incident.objects.all().order_by('-id_incident') 
     serializer_class = IncidentSerializer
-    permission_classes = [IsAuthenticated,IsAnalysteN2|IsAdminUser|IsManager|IsAnalysteN1]  # Koul el actions mta3 el incidents ytalbou authentication
+    permission_classes = [IsAuthenticated,IsAnalysteN2|IsAdminUser|IsManager|IsAnalysteN1]  
     def list(self, request, *args, **kwargs):
-        """
-        Action: Trajja3 liste mta3 les incidents kemlin.
-        URL: GET /api/incidents/
-        """
+         
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     # --- GET INCIDENT BY ID ---
     def retrieve(self, request, *args, **kwargs):
-        """
-        Action: Trajja3 les détails kemlin mta3 incident we7ed bel ID mte3ou.
-        URL: GET /api/incidents/{id}/
-        """
-        instance = self.get_object() # Django y-lawaj 3al incident bel ID automatique
+        
+        instance = self.get_object() 
         serializer = self.get_serializer(instance)
         
         data = serializer.data
         
-        # Faza zayda lel PFE: Calcul MTTA (wa9t el réponse mta3 l-analyste)
         if instance.acknowledge_time:
             diff = instance.acknowledge_time - instance.date_detection
             mtta_minutes = round(diff.total_seconds() / 60, 2)
@@ -73,7 +66,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.save()
         create_audit_log(
             user=request.user, 
-            action='UPDATE', # walla sna3 'ACKNOWLEDGE' f-el choices
+            action='UPDATE', 
             description=f"A pris en charge l'incident (Acknowledge): {incident.incident_id_formatted}",
             incident_id=incident.id_incident
         )
@@ -85,16 +78,12 @@ class IncidentViewSet(viewsets.ModelViewSet):
     # --- PHASE 3: Investigation & Traitement ---
     @action(detail=True, methods=['patch'])
     def investigate(self, request, pk=None):
-        """
-        L-analyste y3ammar el champs mta3 el ba7th mte3ou wa7da wa7da.
-        """
+       
         incident = self.get_object()
         
-        # Verification: Lezem el analyste elli 3mal acknowledge houwa elli ykammel
         if incident.user_name != request.user:
             return Response({'error': 'Vous n\'êtes pas l\'analyste assigné à cet incident.'}, status=403)
 
-        # Liste mta3 el champs elli l-analyste ynajem ybaddelhom tawa
         allowed_fields = [
             'host_name', 'user_name_pc', 'host_state', 
             'severity_level', 'category', 'first_event', 
@@ -102,7 +91,6 @@ class IncidentViewSet(viewsets.ModelViewSet):
             'description_investigation'
         ]
 
-        # N-loopi 3al data elli jaya mel frontend
         for field in allowed_fields:
             if field in request.data:
                 setattr(incident, field, request.data.get(field))
@@ -117,9 +105,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
     # --- PHASE 4: Phase de Clôture (Final Step) ---
     @action(detail=True, methods=['post'])
     def close_incident(self, request, pk=None):
-        """
-        Tessaker el incident w t7ot el remediation wel wa9t niha'i.
-        """
+        
         incident = self.get_object()
         if incident.incident_status == 'Open':
             return Response(
@@ -129,19 +115,17 @@ class IncidentViewSet(viewsets.ModelViewSet):
         if incident.user_name != request.user:
             return Response({'error': 'Seul l\'analyste responsable peut clôturer cet incident.'}, status=403)
 
-        # 1. Mise à jour des champs de clôture
         incident.remediation_destination = request.data.get('remediation_destination')
         incident.false_position = request.data.get('false_position', 'No')
         incident.ticket_relise = request.data.get('ticket_relise', 'No')
         
-        # 2. Status ywalli Closed w nsajlou el wa9t
         incident.incident_status = 'Closed'
         incident.time_of_closed_incident = timezone.now()
         
         incident.save()
         create_audit_log(
             user=request.user, 
-            action='DELETE', # walla sna3 'CLOSE' f-el choices
+            action='DELETE', 
             description=f"A clôturé l'incident: {incident.incident_id_formatted}",
             incident_id=incident.id_incident
         )
@@ -156,13 +140,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
             "mttr_minutes": mttr_minutes
         }, status=status.HTTP_200_OK)
     def create(self, request, *args, **kwargs):
-        """
-        Action: Analyste yzid incident jdid b-ma3loumat awlia.
-        Status automatique: 'Open'
-        """
+        
         data = request.data
         
-        # 1. Ne5thou el ma3loumat mel Request
         titre = data.get('titre')
         date_detection = data.get('date_detection', timezone.now())
         insiter_typo = data.get('insiter_typo', 'Mineur')
@@ -171,8 +151,6 @@ class IncidentViewSet(viewsets.ModelViewSet):
         description_investigation = data.get('description_investigation')
 
         
-        # 3. Ensajlou fil Base de données
-        # Nota: incident_id_formatted taw yitsna3 automatique fil models.save()
         incident = Incident.objects.create(
             titre=titre,
             date_detection=date_detection,
@@ -180,7 +158,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
             plant_name=plant_name,
             raised_by=raised_by,
             description_investigation=description_investigation,
-            incident_status='Open' # Dima yabda Open
+            incident_status='Open' 
         )
         create_audit_log(
             user=request.user, 
@@ -188,7 +166,6 @@ class IncidentViewSet(viewsets.ModelViewSet):
             description=f"A créé un nouvel incident: {incident.titre}",
             incident_id=incident.id_incident
         )
-        # 4. Nrajj3ou el Resultat
         return Response({
             "message": "Incident créé avec succès",
             "incident_id": incident.incident_id_formatted,
@@ -196,23 +173,18 @@ class IncidentViewSet(viewsets.ModelViewSet):
             "status": incident.incident_status
         }, status=status.HTTP_201_CREATED)
     
-    #modification de l'incident
     def update(self, request, *args, **kwargs):
-        incident = self.get_object() # Hadhi hiya l-incident mta3ek (Single Object)
+        incident = self.get_object() 
 
-    # 1. Check Closure
        
         if incident.user_name != request.user:
             return Response({'error': 'Vous n\'êtes pas l\'analyste assigné...'}, status=403)
-    # 3. Update Fields
-    # N-est-a3mlou .get() bch kén m-famech data, i-khali l-valeur l-9dima
         incident.titre = request.data.get('titre', incident.titre)
         incident.insiter_typo = request.data.get('insiter_typo', incident.insiter_typo)
         incident.plant_name = request.data.get('plant_name', incident.plant_name)
         incident.raised_by = request.data.get('raised_by', incident.raised_by)
         incident.description_investigation = request.data.get('description_investigation', incident.description_investigation)
 
-    # 4. SAVE (Houni l-s7i7: update kén l-row hedha)
         incident.save()
         create_audit_log(
             user=request.user, 
@@ -233,7 +205,6 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def get_filtered_queryset(self, request):
         queryset = self.get_queryset()
         
-        # Filtres de temps
         year = request.query_params.get('year')
         month = request.query_params.get('month')
         
@@ -265,12 +236,10 @@ class IncidentViewSet(viewsets.ModelViewSet):
             else:
                 period_filter = Q(date_detection__year=val)
 
-            # الحساب: الفرق بين الوقتين ثم المعدل (Avg)
             data = queryset.filter(period_filter).annotate(
                 diff=ExpressionWrapper(F(end_field) - F(start_field), output_field=DurationField())
             ).aggregate(avg=Avg('diff'))
 
-            # تحويل النتيجة لدقائق (إذا كانت null نرجع 0)
             response_data[val] = self._duration_to_minutes(data['avg']) if data['avg'] else 0
 
         return response_data, None
@@ -311,7 +280,6 @@ class IncidentViewSet(viewsets.ModelViewSet):
         if not stat_type or not values_raw:
             return Response({"error": "Type et values sont obligatoires"}, status=400)
 
-    # N-7awlou '1,2,3' l-lista [1, 2, 3]
         try:
             values_list = [int(v.strip()) for v in values_raw.split(',')]
         except ValueError:
@@ -323,7 +291,7 @@ class IncidentViewSet(viewsets.ModelViewSet):
         base_filter = Q(false_position='Yes', incident_status='Closed')
 
         if stat_type == 'month':
-            current_year = timezone.now().year # 2026
+            current_year = timezone.now().year 
             for m in values_list:
                 count = queryset.filter(
                 base_filter, 
@@ -645,7 +613,17 @@ class IncidentViewSet(viewsets.ModelViewSet):
         if incident.evidence_image:
             try:
                 img_path = incident.evidence_image.path
-                p.drawImage(img_path, 30, current_y - text_box_height - 160, width=250, preserveAspectRatio=True, mask='auto')
+                image_y_position = 130
+                image_max_height = current_y - text_box_height - image_y_position - 10
+                p.drawImage(
+                    img_path, 
+                    30,                
+                    image_y_position,  
+                    width=250, 
+                    height=150,        
+                    preserveAspectRatio=True, 
+                    mask='auto'
+                )            
             except Exception:
                 pass
 
@@ -669,3 +647,4 @@ class IncidentViewSet(viewsets.ModelViewSet):
             permission_classes = [IsAuthenticated, IsAnalysteN1 | IsAnalysteN2 | IsAdminUser | IsManager]
             
         return [permission() for permission in permission_classes]
+   
